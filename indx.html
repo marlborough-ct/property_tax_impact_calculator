@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Capital Project Property Tax Impact Calculator</title>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js" onload="renderMathInElement(document.body);"></script>
+
+    <style>
+        .tax-calc-app {
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            color: #1e293b;
+            background-color: #f1f5f9;
+            padding: 2rem 1rem;
+            min-height: 100vh;
+            box-sizing: border-box;
+        }
+        .tax-calc-app *, .tax-calc-app *::before, .tax-calc-app *::after {
+            box-sizing: inherit;
+        }
+        .tax-calc-container {
+            max-width: 56rem;
+            margin: 0 auto;
+            background: #ffffff;
+            border-radius: 0.75rem;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            padding: 1.5rem;
+        }
+        @media (min-width: 768px) {
+            .tax-calc-container { padding: 2rem; }
+        }
+        .tax-calc-header {
+            border-bottom: 1px solid #e2e8f0;
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+        .tax-calc-header h1 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #1e293b;
+            margin: 0 0 0.25rem 0;
+        }
+        .tax-calc-header p {
+            font-size: 0.875rem;
+            color: #475569;
+            margin: 0;
+        }
+        .search-row {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            margin-bottom: 1.5rem;
+        }
+        @media (min-width: 640px) {
+            .search-row { flex-direction: row; }
+        }
+        .search-input {
+            flex: 1;
+            border: 1px solid #cbd5e1;
+            border-radius: 0.5rem;
+            padding: 0.75rem;
+            font-size: 0.875rem;
+            outline: none;
+        }
+        .search-input:focus {
+            border-color: #2563eb;
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+        }
+        .btn-primary {
+            background-color: #2563eb;
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.5rem;
+            font-weight: 500;
+            font-size: 0.875rem;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            white-space: nowrap;
+        }
+        .btn-primary:hover { background-color: #1d4ed8; }
+        
+        .results-box {
+            border: 1px solid #e2e8f0;
+            border-radius: 0.5rem;
+            overflow: hidden;
+            margin-bottom: 1.5rem;
+        }
+        .results-header {
+            background-color: #f8fafc;
+            padding: 0.75rem 1rem;
+            border-bottom: 1px solid #e2e8f0;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            color: #64748b;
+        }
+        .results-list {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+        }
+        .results-item {
+            padding: 1rem;
+            border-bottom: 1px solid #e2e8f0;
+            cursor: pointer;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            transition: background-color 0.15s;
+        }
+        .results-item:last-child { border-bottom: none; }
+        .results-item:hover { background-color: #eff6ff; }
+        .prop-address { font-weight: 500; color: #1e293b; margin: 0; font-size: 0.95rem; }
+        .prop-owner { font-size: 0.75rem; color: #64748b; margin: 0; }
+
+        .alert-box {
+            padding: 1rem;
+            background-color: #fef3c7;
+            border: 1px solid #fde68a;
+            border-radius: 0.5rem;
+            color: #92400e;
+            font-size: 0.875rem;
+        }
+        .alert-box p { margin: 0 0 0.25rem 0; }
+        .alert-sub { font-size: 0.75rem; color: #b45309; }
+
+        .back-link {
+            font-size: 0.875rem;
+            color: #2563eb;
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 0;
+            margin-bottom: 1rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25rem;
+        }
+        .back-link:hover { text-decoration: underline; }
+
+        .property-card {
+            background-color: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 0.75rem;
+            padding: 1.25rem;
+            margin-bottom: 1.5rem;
+        }
+        .property-card-top {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            margin-bottom: 1rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        @media (min-width: 768px) {
+            .property-card-top { flex-direction: row; justify-content: space-between; align-items: center; }
+        }
+        .prop-title-section span { font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.05em; display: block; }
+        .prop-title-section h2 { font-size: 1.125rem; font-weight: 700; color: #1e293b; margin: 0.125rem 0 0 0; }
+        
+        .exemption-box {
+            background: #ffffff;
+            border: 1px solid #cbd5e1;
+            border-radius: 0.5rem;
+            padding: 0.75rem;
+            box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+        }
+        .exemption-label {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            cursor: pointer;
+            font-size: 0.75rem;
+            font-weight: 500;
+            color: #334155;
+            user-select: none;
+        }
+        .exemption-label input { width: 1rem; height: 1rem; accent-color: #2563eb; cursor: pointer; }
+
+        .prop-details-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 1rem;
+            font-size: 0.875rem;
+        }
+        @media (min-width: 640px) { .prop-details-grid { grid-template-columns: repeat(2, 1fr); } }
+        @media (min-width: 768px) { .prop-details-grid { grid-template-columns: repeat(4, 1fr); } }
+
+        .detail-item span.label { display: block; font-size: 0.75rem; color: #64748b; text-transform: uppercase; }
+        .detail-item span.value { font-weight: 500; color: #1e293b; }
+        .detail-item span.value-blue { font-weight: 700; color: #2563eb; }
+
+        .section-heading {
+            font-size: 1.125rem;
+            font-weight: 600;
+            color: #1e293b;
+            margin: 0 0 0.25rem 0;
+        }
+        .section-sub {
+            font-size: 0.75rem;
+            color: #64748b;
+            margin: 0 0 1rem 0;
+        }
+
+        .calc-table-wrapper {
+            border: 1px solid #e2e8f0;
+            border-radius: 0.5rem;
+            overflow-x: auto;
+            margin-bottom: 2rem;
+            background: #ffffff;
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05);
+        }
+        .calc-table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+            font-size: 0.75rem;
+            white-space: nowrap;
+        }
+        .calc-table th {
+            background-color: #f1f5f9;
+            border-bottom: 1px solid #e2e8f0;
+            text-transform: uppercase;
+            color: #475569;
+            font-weight: 600;
+            padding: 0.75rem 1rem;
+            letter-spacing: 0.05em;
+        }
+        .calc-table td {
+            padding: 0.875rem 1rem;
+            border-bottom: 1px solid #e2e8f0;
+            color: #334155;
+        }
+        .calc-table td.text-blue { color: #2563eb; }
+        .calc-table tr:last-child td { border-bottom: none; }
+        .calc-table tr:hover { background-color: #f8fafc; }
+        .text-right { text-align: right; }
+        .font-semibold { font-weight: 600; }
+        .font-bold { font-weight: 700; }
+        .text-blue { color: #2563eb; }
+
+        .tax-calc-footer {
+            max-width: 56rem;
+            margin: 1.5rem auto 0 auto;
+            padding: 1.5rem;
+            background-color: #e2e8f0;
+            border-radius: 0.75rem;
+            color: #334155;
+            font-size: 0.75rem;
+            line-height: 1.5;
+            box-shadow: inset 0 2px 4px 0 rgba(0,0,0,0.06);
+        }
+        .tax-calc-footer h4 { font-weight: 700; color: #1e293b; font-size: 0.875rem; text-transform: uppercase; margin: 0 0 0.5rem 0; }
+        .tax-calc-footer p { margin: 0 0 1rem 0; }
+        .footer-divider { border: none; height: 1px; background-color: #cbd5e1; margin: 1rem 0; }
+        .math-block { text-align: center; padding: 0.25rem 0; overflow-x: auto; }
+        .math-title { font-family: serif; font-weight: 600; font-size: 0.875rem; color: #0f172a; margin-bottom: 0.25rem; }
+        .math-italic { font-family: serif; font-style: italic; font-size: 0.875rem; color: #0f172a; margin-bottom: 0.25rem; }
+        .math-sub { font-size: 0.8rem; color: #475569; font-style: italic; }
+    </style>
+</head>
+<body>
+
+    <div class="tax-calc-app" x-data="taxCalculator()">
+        <div class="tax-calc-container">
+            <header class="tax-calc-header">
+                <h1>Capital Project Property Tax Impact Calculator</h1>
+                <p>Search by property address or owner name to evaluate estimated tax impacts from proposed municipal capital projects.</p>
+            </header>
+
+            <template x-if="step === 'search'">
+                <div>
+                    <div class="search-row">
+                        <input type="text" x-model="searchQuery" @keyup.enter="searchProperties()" placeholder="Enter street name or owner name..." class="search-input">
+                        <button @click="searchProperties()" class="btn-primary">Search Records</button>
+                    </div>
+
+                    <template x-if="searchResults.length > 0">
+                        <div class="results-box">
+                            <div class="results-header" x-text="`Found ${searchResults.length} matching properties`"></div>
+                            <ul class="results-list">
+                                <template x-for="(prop, index) in searchResults" :key="index">
+                                    <li class="results-item" @click="selectProperty(prop)">
+                                        <div>
+                                            <p class="prop-address" x-text="getPropertyField(prop, ['Address']) || 'Address Not Listed'"></p>
+                                            <p class="prop-owner">Owner(s): <span x-text="getPropertyField(prop, ['Owner(s)', 'Owner', 'Owner Name'])"></span></p>
+                                        </div>
+                                    </li>
+                                </template>
+                            </ul>
+                        </div>
+                    </template>
+
+                    <template x-if="searched && searchResults.length === 0">
+                        <div class="alert-box">
+                            <p style="font-weight: 500;">No properties matched your search query.</p>
+                            <p class="alert-sub">Try searching with a broader keyword, such as a street name or a single last name.</p>
+                        </div>
+                    </template>
+                </div>
+            </template>
+
+            <template x-if="step === 'details'">
+                <div>
+                    <button @click="step = 'search'; selectedProperty = null; isVeteranExempt = false;" class="back-link">&larr; Back to Search Results</button>
+                    
+                    <div class="property-card">
+                        <div class="property-card-top">
+                            <div class="prop-title-section">
+                                <span>Selected Property</span>
+                                <h2 x-text="getPropertyField(selectedProperty, ['Address'])"></h2>
+                            </div>
+                            <div class="exemption-box">
+                                <label class="exemption-label">
+                                    <input type="checkbox" x-model="isVeteranExempt">
+                                    <span>100% P&T Disabled Veteran Exemption</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <div class="prop-details-grid">
+                            <div class="detail-item">
+                                <span class="label">Owner(s)</span>
+                                <span class="value" x-text="getPropertyField(selectedProperty, ['Owner(s)', 'Owner']) || 'N/A'"></span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="label">Co-Owner</span>
+                                <span class="value" x-text="getPropertyField(selectedProperty, ['Co-Owner']) || 'N/A'"></span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="label">Total Market Value</span>
+                                <span class="value" x-text="formatCurrency(parseNum(getPropertyField(selectedProperty, ['Total Value', 'TotalValue'])) )"></span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="label">Land Market Value</span>
+                                <span class="value" x-text="formatCurrency(parseNum(getPropertyField(selectedProperty, ['Land Value', 'LandValue'])) )"></span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="label">Taxable Assessed Value (70%)</span>
+                                <span class="value-blue" x-text="formatCurrency(assessedValue)"></span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="label">Zone / Area</span>
+                                <span class="value" x-text="(getPropertyField(selectedProperty, ['Zone']) || 'N/A') + ' (' + (getPropertyField(selectedProperty, ['Parcel Area']) || '') + ')'"></span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="label">Current Est. Property Tax</span>
+                                <span class="value-blue" x-text="formatCurrency(currentBaseTax)"></span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <h3 class="section-heading">Proposed Capital Projects & Financing Structure</h3>
+                    <p class="section-sub">Overview of estimated borrowing costs, interest rates, and annual debt service payments.</p>
+
+                    <div class="calc-table-wrapper">
+                        <table class="calc-table">
+                            <thead>
+                                <tr>
+                                    <th style="min-width: 180px;">Project Name</th>
+                                    <th class="text-right" style="min-width: 110px;">Estimated Cost</th>
+                                    <th class="text-right" style="min-width: 90px;">Interest Rate</th>
+                                    <th class="text-right" style="min-width: 90px;">Period</th>
+                                    <th class="text-right" style="min-width: 120px;">Annual Debt Service</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <template x-for="proj in calculatedProjects" :key="proj.name">
+                                    <tr>
+                                        <td class="font-semibold" x-text="proj.name"></td>
+                                        <td class="text-right" x-text="formatCurrency(proj.cost)"></td>
+                                        <td class="text-right" x-text="(proj.rate * 100).toFixed(1) + '%'"></td>
+                                        <td class="text-right" x-text="proj.period + ' Years'"></td>
+                                        <td class="text-right font-semibold" x-text="formatCurrency(proj.annualPayment)"></td>
+                                    </tr>
+                                </template>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <h3 class="section-heading">Estimated Mill Rate & Property Tax Impact</h3>
+                    <p class="section-sub">Current Mill Rate: <span class="font-semibold" x-text="millRate"></span> | Net Grand List: <span class="font-semibold" x-text="formatCurrency(netGrandList)"></span></p>
+
+                    <div class="calc-table-wrapper" style="margin-bottom: 0;">
+                        <table class="calc-table">
+                            <thead>
+                                <tr>
+                                    <th style="min-width: 180px;">Project Name</th>
+                                    <th class="text-right" style="min-width: 95px;">Mill Rate Inc.</th>
+                                    <th class="text-right" style="min-width: 95px;">Est. New Mill Rate</th>
+                                    <th class="text-right" style="min-width: 100px;">Tax Increase</th>
+                                    <th class="text-right" style="min-width: 100px;">New Tax</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <template x-for="proj in calculatedProjects" :key="proj.name">
+                                    <tr>
+                                        <td class="font-semibold" x-text="proj.name"></td>
+                                        <td class="text-right font-semibold text-blue" x-text="proj.mrIncrease.toFixed(2)"></td>
+                                        <td class="text-right font-bold" x-text="proj.newMr.toFixed(2)"></td>
+                                        <td class="text-right font-semibold text-blue" x-text="formatCurrency(proj.taxIncrease)"></td>
+                                        <td class="text-right font-bold" x-text="formatCurrency(proj.newTax)"></td>
+                                    </tr>
+                                </template>
+                            </tbody>
+                        </table>
+                    </div>
+
+                </div>
+            </template>
+        </div>
+
+        <footer class="tax-calc-footer">
+            <h4>Disclaimer & Calculations</h4>
+            <p>
+                These figures are estimates compiled from publicly available municipal records and proposed project costs. Actual tax impacts may vary based on changes in property appraisal, future grand list adjustments, bonding terms, and town meeting approvals.
+            </p>
+
+            <div class="footer-divider"></div>
+
+            <div style="display: flex; flex-direction: column; gap: 1rem;">
+                <div class="math-block">
+                    <div class="math-title">$$\text{Assessed Value} = 0.7 \times \text{Appraised Value}$$</div>
+                </div>
+
+                <hr class="footer-divider" style="margin: 0.25rem 0;">
+
+                <div class="math-block">
+                    <div class="math-italic">For 100% P&T Disabled Veterans:</div>
+                    <div class="math-italic">$$\text{Assessed Value} = 0.7 \times \text{Appraised Land Value}$$</div>
+                </div>
+
+                <hr class="footer-divider" style="margin: 0.25rem 0;">
+
+                <div class="math-block">
+                    <div class="math-title">$$M = P\left(\frac{r(1+r)^n}{(1+r)^n - 1}\right)$$</div>
+                    <div class="math-sub">M = Annual Payment, P = Loan Amount, r = Interest Rate, n = Years</div>
+                </div>
+
+                <hr class="footer-divider" style="margin: 0.25rem 0;">
+
+                <div class="math-block">
+                    <div class="math-title">$$\text{Mill Rate Increase} = \left(\frac{M}{\text{Net Grand List}}\right) \times 1000$$</div>
+                    <div class="math-sub">M = Annual Payment</div>
+                </div>
+
+                <hr class="footer-divider" style="margin: 0.25rem 0;">
+
+                <div class="math-block">
+                    <div class="math-title">$$\text{Property Tax} = \frac{(\text{Assessed Value})(\text{Mill Rate})}{1000}$$</div>
+                </div>
+            </div>
+        </footer>
+    </div>
+
+    <script>
+        function taxCalculator() {
+            return {
+                step: 'search',
+                searchQuery: '',
+                searched: false,
+                allProperties: [],
+                rawProjects: [],
+                selectedProperty: null,
+                isVeteranExempt: false,
+                millRate: 27.1,
+                netGrandList: 867257246,
+                searchResults: [],
+
+                init() {
+                    Papa.parse("property-data.csv", {
+                        download: true,
+                        header: true,
+                        skipEmptyLines: true,
+                        complete: (res) => {
+                            this.allProperties = res.data.map(row => {
+                                let cleanRow = {};
+                                for (let key in row) {
+                                    if (key) cleanRow[key.trim()] = row[key];
+                                }
+                                return cleanRow;
+                            });
+                        }
+                    });
+
+                    Papa.parse("capital-projects.csv", {
+                        download: true,
+                        header: true,
+                        skipEmptyLines: true,
+                        complete: (res) => {
+                            this.rawProjects = res.data.map(row => {
+                                let cleanRow = {};
+                                for (let key in row) {
+                                    if (key) cleanRow[key.trim().toLowerCase()] = row[key];
+                                }
+                                let rawRate = cleanRow['rate'] || cleanRow['interest rate'] || '0.045';
+                                let parsedRate = parseFloat(rawRate.toString().replace(/[%]/g, '')) || 0.045;
+                                if (parsedRate > 1) parsedRate = parsedRate / 100;
+
+                                return {
+                                    name: cleanRow['name'] || cleanRow['project name'] || 'Project',
+                                    cost: parseFloat((cleanRow['cost'] || '0').replace(/[\$,]/g, '')) || 0,
+                                    rate: parsedRate,
+                                    period: parseInt(cleanRow['period'] || cleanRow['years'] || '20', 10) || 20
+                                };
+                            });
+                        }
+                    });
+                },
+
+                getPropertyField(obj, possibleKeys) {
+                    if (!obj) return '';
+                    for (let key of possibleKeys) {
+                        if (obj[key] !== undefined) return obj[key];
+                    }
+                    const objKeys = Object.keys(obj);
+                    for (let pk of possibleKeys) {
+                        const found = objKeys.find(k => k.toLowerCase() === pk.toLowerCase());
+                        if (found) return obj[found];
+                    }
+                    return '';
+                },
+
+                searchProperties() {
+                    this.searched = true;
+                    if (!this.searchQuery.trim()) {
+                        this.searchResults = [];
+                        return;
+                    }
+
+                    const q = this.searchQuery.toLowerCase().trim();
+                    this.searchResults = this.allProperties.filter(prop => {
+                        return Object.values(prop).some(val => {
+                            if (val === null || val === undefined) return false;
+                            return val.toString().toLowerCase().includes(q);
+                        });
+                    });
+                },
+
+                selectProperty(prop) {
+                    this.selectedProperty = prop;
+                    this.isVeteranExempt = false; 
+                    this.step = 'details';
+                },
+
+                parseNum(val) {
+                    if (!val) return 0;
+                    return parseFloat(val.toString().replace(/[\$,]/g, '')) || 0;
+                },
+
+                get assessedValue() {
+                    if (!this.selectedProperty) return 0;
+                    
+                    if (this.isVeteranExempt) {
+                        const landVal = this.parseNum(this.getPropertyField(this.selectedProperty, ['Land Value', 'LandValue']));
+                        return landVal * 0.7;
+                    }
+
+                    const totalVal = this.parseNum(this.getPropertyField(this.selectedProperty, ['Total Value', 'TotalValue']));
+                    return totalVal * 0.7;
+                },
+
+                get currentBaseTax() {
+                    return (this.assessedValue * this.millRate) / 1000;
+                },
+
+                get calculatedProjects() {
+                    if (!this.selectedProperty) return [];
+                    const assessed = this.assessedValue;
+                    const mr = this.millRate;
+                    const ngl = this.netGrandList;
+
+                    return this.rawProjects.map(proj => {
+                        const r = proj.rate;
+                        const n = proj.period;
+                        const annualPayment = proj.cost * ((r * Math.pow(1 + r, n)) / (Math.pow(1 + r, n) - 1));
+                        const mrIncrease = (annualPayment / ngl) * 1000;
+                        const currentTax = (assessed * mr) / 1000;
+                        const newMr = mr + mrIncrease;
+                        const newTax = (assessed * newMr) / 1000;
+                        const taxIncrease = newTax - currentTax;
+
+                        return {
+                            name: proj.name,
+                            cost: proj.cost,
+                            rate: proj.rate,
+                            period: proj.period,
+                            annualPayment: annualPayment,
+                            currentTax: currentTax,
+                            mrIncrease: mrIncrease,
+                            newMr: newMr,
+                            newTax: newTax,
+                            taxIncrease: taxIncrease
+                        };
+                    });
+                },
+
+                formatCurrency(val) {
+                    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 2 }).format(val);
+                }
+            }
+        }
+    </script>
+</body>
+</html>
