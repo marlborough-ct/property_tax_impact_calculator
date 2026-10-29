@@ -242,9 +242,37 @@
         .calc-table tr:last-child td { border-bottom: none; }
         .calc-table tr:hover { background-color: #f8fafc; }
         .text-right { text-align: right; }
+        .text-center { text-align: center; }
         .font-semibold { font-weight: 600; }
         .font-bold { font-weight: 700; }
         .text-blue { color: #2563eb; }
+
+        .supported-summary-card {
+            background: linear-gradient(to bottom right, #f8fafc, #eff6ff);
+            border: 1px solid #bfdbfe;
+            border-radius: 0.75rem;
+            padding: 1.25rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 1px 3px 0 rgba(0,0,0,0.05);
+        }
+        .supported-summary-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 1rem;
+            margin-top: 0.75rem;
+        }
+        @media (min-width: 640px) {
+            .supported-summary-grid { grid-template-columns: repeat(3, 1fr); }
+        }
+        .summary-metric-box {
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 0.5rem;
+            padding: 0.875rem 1rem;
+        }
+        .summary-metric-box span.label { display: block; font-size: 0.75rem; color: #64748b; text-transform: uppercase; font-weight: 600; }
+        .summary-metric-box span.value { font-size: 1.125rem; font-weight: 700; color: #1e293b; margin-top: 0.2rem; display: block; }
+        .summary-metric-box span.value-blue { font-size: 1.125rem; font-weight: 700; color: #2563eb; margin-top: 0.2rem; display: block; }
 
         .tax-calc-footer {
             max-width: 56rem;
@@ -376,7 +404,7 @@
                                     <tr>
                                         <td class="font-semibold" x-text="proj.name"></td>
                                         <td class="text-right" x-text="formatCurrency(proj.cost)"></td>
-                                        <td class="text-right" x-text="(proj.rate * 100).toFixed(1) + '%'"></td>
+                                        <td class="text-right" x-text="(proj.rate * 100).toFixed(2) + '%'"></td>
                                         <td class="text-right" x-text="proj.period + ' Years'"></td>
                                         <td class="text-right font-semibold" x-text="formatCurrency(proj.annualPayment)"></td>
                                     </tr>
@@ -386,12 +414,13 @@
                     </div>
 
                     <h3 class="section-heading">Estimated Mill Rate & Property Tax Impact</h3>
-                    <p class="section-sub">Current Mill Rate: <span class="font-semibold" x-text="millRate"></span> | Net Grand List: <span class="font-semibold" x-text="formatCurrency(netGrandList)"></span></p>
+                    <p class="section-sub">Select which projects you support below to include them in your cumulative tax impact calculation.</p>
 
-                    <div class="calc-table-wrapper" style="margin-bottom: 0;">
+                    <div class="calc-table-wrapper">
                         <table class="calc-table">
                             <thead>
                                 <tr>
+                                    <th class="text-center" style="width: 70px;">Support</th>
                                     <th style="min-width: 180px;">Project Name</th>
                                     <th class="text-right" style="min-width: 95px;">Mill Rate Inc.</th>
                                     <th class="text-right" style="min-width: 95px;">Est. New Mill Rate</th>
@@ -402,6 +431,9 @@
                             <tbody>
                                 <template x-for="proj in calculatedProjects" :key="proj.name">
                                     <tr>
+                                        <td class="text-center">
+                                            <input type="checkbox" x-model="rawProjects[proj.index].supported" style="width: 1rem; height: 1rem; accent-color: #2563eb; cursor: pointer;">
+                                        </td>
                                         <td class="font-semibold" x-text="proj.name"></td>
                                         <td class="text-right font-semibold text-blue" x-text="proj.mrIncrease.toFixed(2)"></td>
                                         <td class="text-right font-bold" x-text="proj.newMr.toFixed(2)"></td>
@@ -411,6 +443,26 @@
                                 </template>
                             </tbody>
                         </table>
+                    </div>
+
+                    <div class="supported-summary-card">
+                        <h3 class="section-heading" style="font-size: 1rem; margin-bottom: 0.125rem;">Property Tax Impact of Supported Projects</h3>
+                        <p class="section-sub" style="margin-bottom: 0.75rem;">Cumulative financial summary based exclusively on your selected capital projects.</p>
+                        
+                        <div class="supported-summary-grid">
+                            <div class="summary-metric-box">
+                                <span class="label">Current vs. Supported Mill Rate</span>
+                                <span class="value" x-text="millRate.toFixed(2) + ' &rarr; ' + supportedCumulativeMillRate.toFixed(2)"></span>
+                            </div>
+                            <div class="summary-metric-box">
+                                <span class="label">Total Tax Increase</span>
+                                <span class="value-blue" x-text="formatCurrency(supportedCumulativeTaxIncrease)"></span>
+                            </div>
+                            <div class="summary-metric-box">
+                                <span class="label">New Total Annual Tax</span>
+                                <span class="value" x-text="formatCurrency(supportedCumulativeNewTax)"></span>
+                            </div>
+                        </div>
                     </div>
 
                 </div>
@@ -508,7 +560,8 @@
                                     name: cleanRow['name'] || cleanRow['project name'] || 'Project',
                                     cost: parseFloat((cleanRow['cost'] || '0').replace(/[\$,]/g, '')) || 0,
                                     rate: parsedRate,
-                                    period: parseInt(cleanRow['period'] || cleanRow['years'] || '20', 10) || 20
+                                    period: parseInt(cleanRow['period'] || cleanRow['years'] || '20', 10) || 20,
+                                    supported: true // Default selected checkbox state
                                 };
                             });
                         }
@@ -544,7 +597,14 @@
                     });
                 },
 
+                resetProjects() {
+                    this.rawProjects.forEach(proj => {
+                        proj.supported = true;
+                    });
+                },
+
                 selectProperty(prop) {
+                    this.resetProjects();
                     this.selectedProperty = prop;
                     this.isVeteranExempt = false; 
                     this.step = 'details';
@@ -577,7 +637,7 @@
                     const mr = this.millRate;
                     const ngl = this.netGrandList;
 
-                    return this.rawProjects.map(proj => {
+                    return this.rawProjects.map((proj, index) => {
                         const r = proj.rate;
                         const n = proj.period;
                         const annualPayment = proj.cost * ((r * Math.pow(1 + r, n)) / (Math.pow(1 + r, n) - 1));
@@ -588,10 +648,12 @@
                         const taxIncrease = newTax - currentTax;
 
                         return {
+                            index: index,
                             name: proj.name,
                             cost: proj.cost,
                             rate: proj.rate,
                             period: proj.period,
+                            supported: proj.supported,
                             annualPayment: annualPayment,
                             currentTax: currentTax,
                             mrIncrease: mrIncrease,
@@ -600,6 +662,25 @@
                             taxIncrease: taxIncrease
                         };
                     });
+                },
+
+                get supportedCumulativeMillRate() {
+                    if (!this.selectedProperty) return this.millRate;
+                    const sumSupportedMrIncrease = this.calculatedProjects
+                        .filter(proj => proj.supported)
+                        .reduce((acc, proj) => acc + proj.mrIncrease, 0);
+                    return this.millRate + sumSupportedMrIncrease;
+                },
+
+                get supportedCumulativeTaxIncrease() {
+                    if (!this.selectedProperty) return 0;
+                    return this.calculatedProjects
+                        .filter(proj => proj.supported)
+                        .reduce((acc, proj) => acc + proj.taxIncrease, 0);
+                },
+
+                get supportedCumulativeNewTax() {
+                    return this.currentBaseTax + this.supportedCumulativeTaxIncrease;
                 },
 
                 formatCurrency(val) {
