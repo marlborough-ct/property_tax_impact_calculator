@@ -583,7 +583,7 @@
 
                 searchProperties() {
                     this.searched = true;
-                    if (!this.searchQuery.trim()) {
+                    if (!this.searchQuery.trim() || this.searchQuery.trim().length < 3) {
                         this.searchResults = [];
                         return;
                     }
